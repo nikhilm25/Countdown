@@ -1,0 +1,654 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Countdowns</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #0b0d10;
+      --fg: #e8eef2;
+      --muted: #97a3ad;
+      --accent: #4f8cff;
+      --danger: #ff5c5c;
+      --card: rgba(255,255,255,0.06);
+      --border: rgba(255,255,255,0.15);
+      --ok: #38d996;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      min-height: 100svh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+    .app {
+      width: 100%;
+      max-width: 1000px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      backdrop-filter: blur(6px);
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: 0.2px;
+    }
+    p.help {
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    /* Inputs, buttons */
+    label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    input[type="text"], input[type="datetime-local"] {
+      width: 100%;
+      padding: 10px 12px;
+      font: inherit;
+      color: inherit;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      outline: none;
+      min-width: 0;
+    }
+    input[type="text"]::placeholder {
+      color: color-mix(in oklab, var(--muted), transparent 25%);
+    }
+    .btn {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--fg);
+      padding: 10px 14px;
+      border-radius: 10px;
+      font: inherit;
+      cursor: pointer;
+      transition: 0.15s ease;
+    }
+    .btn.primary {
+      border-color: color-mix(in oklab, var(--accent), black 30%);
+      background: color-mix(in oklab, var(--accent), transparent 80%);
+    }
+    .btn.danger {
+      border-color: color-mix(in oklab, var(--danger), black 30%);
+      background: color-mix(in oklab, var(--danger), transparent 85%);
+    }
+    .btn.small { padding: 6px 10px; font-size: 12px; border-radius: 8px; white-space: nowrap; }
+    .btn:hover { transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 260px auto;
+      gap: 12px;
+      align-items: end;
+    }
+    @media (max-width: 720px) {
+      .row { grid-template-columns: 1fr; }
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 16px 0;
+      border-radius: 1px;
+    }
+    .error {
+      color: var(--danger);
+      font-size: 13px;
+      margin-top: 8px;
+    }
+    .hidden { display: none !important; }
+
+    /* List/grid of countdown cards */
+    .top-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+    }
+
+    .list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .empty {
+      color: var(--muted);
+      font-size: 14px;
+      padding: 18px 12px;
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      text-align: center;
+    }
+
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+      background: rgba(255,255,255,0.03);
+      display: grid;
+      gap: 8px;
+      overflow: hidden;
+    }
+    .card.expired { outline: 1px dashed color-mix(in oklab, var(--danger), transparent 60%); }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .title {
+      font-weight: 600;
+      font-size: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+    .title-text {
+      overflow-wrap: anywhere;
+    }
+    .pill {
+      font-weight: 600;
+      font-size: 11px;
+      letter-spacing: 0.4px;
+      padding: 2px 8px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--muted);
+      text-transform: uppercase;
+      flex: 0 0 auto;
+      white-space: nowrap;
+    }
+    .actions { display: flex; gap: 6px; flex: 0 0 auto; }
+
+    .countdown {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(50px, 1fr));
+      gap: 8px;
+      text-align: center;
+      margin-top: 2px;
+    }
+    .tile {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 8px;
+      background: rgba(255,255,255,0.03);
+    }
+    .num {
+      font-variant-numeric: tabular-nums;
+      font-size: clamp(20px, 4.5vw, 32px);
+      font-weight: 700;
+      line-height: 1;
+    }
+    .label {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+    }
+    .target {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 2px;
+      overflow-wrap: anywhere;
+    }
+    .done {
+      color: var(--ok);
+      font-weight: 700;
+      font-size: 12px;
+    }
+
+    /* Edit dialog */
+    dialog.modal {
+      border: 1px solid var(--border);
+      background: color-mix(in oklab, var(--bg), white 4%);
+      color: var(--fg);
+      border-radius: 14px;
+      padding: 16px;
+      width: min(560px, 92vw);
+      max-width: 92vw;
+    }
+    dialog.modal::backdrop {
+      background: rgba(0,0,0,0.5);
+      backdrop-filter: blur(2px);
+    }
+    .dialog-title {
+      margin: 0 0 12px;
+      font-size: 18px;
+      font-weight: 650;
+    }
+    .edit-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+    .edit-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .dialog-error {
+      color: var(--danger);
+      font-size: 13px;
+      min-height: 1.2em;
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <h1>Countdowns</h1>
+      <div class="top-actions">
+        <button id="clearAllBtn" class="btn danger small" type="button">Clear all</button>
+      </div>
+    </header>
+    <p class="help">Create multiple countdowns. They’re saved locally in your browser and continue when you reopen the page.</p>
+
+    <form id="newForm" autocomplete="off">
+      <div class="row">
+        <div>
+          <label for="newTitle">Label (optional)</label>
+          <input id="newTitle" type="text" placeholder="e.g., Launch, Trip, Workout timer" />
+        </div>
+        <div>
+          <label for="newDt">Target date & time</label>
+          <input id="newDt" type="datetime-local" required />
+        </div>
+        <button class="btn primary" type="submit">Add Countdown</button>
+      </div>
+      <div id="newError" class="error hidden"></div>
+    </form>
+
+    <div class="divider"></div>
+
+    <div id="empty" class="empty hidden">No countdowns yet. Add one above to get started.</div>
+    <section id="list" class="list" aria-live="polite"></section>
+  </main>
+
+  <!-- Reusable edit dialog -->
+  <dialog id="editDialog" class="modal" aria-modal="true">
+    <form id="editForm" method="dialog" autocomplete="off">
+      <h2 class="dialog-title">Edit countdown</h2>
+      <div class="edit-grid">
+        <div>
+          <label for="editTitle">Label</label>
+          <input id="editTitle" type="text" placeholder="Untitled" />
+        </div>
+        <div>
+          <label for="editDt">Target date & time</label>
+          <input id="editDt" type="datetime-local" required />
+        </div>
+        <div id="editError" class="dialog-error"></div>
+      </div>
+      <div class="edit-actions">
+        <button id="editCancel" class="btn" value="cancel" type="button">Cancel</button>
+        <button class="btn primary" type="submit">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script>
+    // Multiple persistent countdowns using localStorage.
+    // Storage key: 'countdownsV1' => JSON array of { id, title, ts, createdAt }
+    const LS_KEY = 'countdownsV1';
+    const $ = (sel, root = document) => root.querySelector(sel);
+    const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+    let countdowns = [];
+    let view = new Map(); // id -> {card, d,h,m,s,done,targetText,titleText,pill}
+    let editingId = null;
+
+    function uid() {
+      if (crypto?.randomUUID) return crypto.randomUUID();
+      return 'c_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+    }
+
+    function load() {
+      try {
+        const raw = localStorage.getItem(LS_KEY);
+        if (!raw) return [];
+        const arr = JSON.parse(raw);
+        if (!Array.isArray(arr)) return [];
+        return arr.filter(x => Number.isFinite(x?.ts) && typeof x?.id === 'string');
+      } catch {
+        return [];
+      }
+    }
+
+    function save() {
+      localStorage.setItem(LS_KEY, JSON.stringify(countdowns));
+    }
+
+    function fmt2(n) { return n.toString().padStart(2, '0'); }
+
+    function splitDuration(ms) {
+      const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+      const days = Math.floor(totalSeconds / 86400);
+      const hours = Math.floor((totalSeconds % 86400) / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+      return { days, hours, minutes, seconds };
+    }
+
+    function formatTarget(ts) {
+      try {
+        const d = new Date(ts);
+        const intl = new Intl.DateTimeFormat([], { dateStyle: 'full', timeStyle: 'long' }).format(d);
+        const relFmt = new Intl.RelativeTimeFormat([], { numeric: 'auto' });
+        const diffMs = ts - Date.now();
+        const diffDays = Math.round(diffMs / 86400000);
+        const rel = Math.abs(diffDays) >= 2
+          ? relFmt.format(diffDays, 'day')
+          : (diffMs >= 0 ? 'soon' : 'just now');
+        return `${intl} (${rel})`;
+      } catch {
+        return new Date(ts).toString();
+      }
+    }
+
+    function setHidden(el, hidden) {
+      el.classList.toggle('hidden', !!hidden);
+    }
+
+    function showError(el, msg) {
+      el.textContent = msg;
+      el.classList.remove('hidden');
+    }
+
+    function clearError(el) {
+      el.textContent = '';
+      el.classList.add('hidden');
+    }
+
+    function toDatetimeLocalValue(ts) {
+      const d = new Date(ts);
+      // Adjust to local timezone for input[type=datetime-local]
+      const isoLocal = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      return isoLocal;
+    }
+
+    function createCard(item) {
+      const card = document.createElement('article');
+      card.className = 'card';
+      card.dataset.id = item.id;
+
+      card.innerHTML = `
+        <div class="card-header">
+          <div class="title">
+            <span class="title-text"></span>
+            <span class="pill">#${item.id.slice(0, 6)}</span>
+          </div>
+          <div class="actions">
+            <button class="btn small editBtn" type="button">Edit</button>
+            <button class="btn small danger deleteBtn" type="button">Delete</button>
+          </div>
+        </div>
+
+        <div class="countdown">
+          <div class="tile">
+            <div class="num d">0</div>
+            <div class="label">Days</div>
+          </div>
+          <div class="tile">
+            <div class="num h">00</div>
+            <div class="label">Hours</div>
+          </div>
+          <div class="tile">
+            <div class="num m">00</div>
+            <div class="label">Minutes</div>
+          </div>
+          <div class="tile">
+            <div class="num s">00</div>
+            <div class="label">Seconds</div>
+          </div>
+        </div>
+
+        <div class="target"></div>
+        <div class="done hidden">Time reached!</div>
+      `;
+
+      // Cache refs
+      const refs = {
+        card,
+        titleText: $('.title-text', card),
+        d: $('.d', card),
+        h: $('.h', card),
+        m: $('.m', card),
+        s: $('.s', card),
+        target: $('.target', card),
+        done: $('.done', card),
+        editBtn: $('.editBtn', card),
+        deleteBtn: $('.deleteBtn', card),
+      };
+
+      // Initialize content
+      refs.titleText.textContent = item.title?.trim() || 'Untitled';
+      refs.target.textContent = 'Target: ' + formatTarget(item.ts);
+
+      // Wire actions
+      refs.editBtn.addEventListener('click', () => openEdit(item.id));
+      refs.deleteBtn.addEventListener('click', () => deleteItem(item.id));
+      // Quick access: double-click title to edit
+      refs.titleText.addEventListener('dblclick', () => openEdit(item.id));
+
+      // Save to map
+      view.set(item.id, refs);
+      return card;
+    }
+
+    function openEdit(id) {
+      const item = findById(id);
+      if (!item) return;
+      editingId = id;
+
+      const dlg = $('#editDialog');
+      const titleEl = $('#editTitle');
+      const dtEl = $('#editDt');
+      const errEl = $('#editError');
+
+      clearError(errEl);
+      titleEl.value = item.title || '';
+      dtEl.value = toDatetimeLocalValue(item.ts);
+
+      dlg.showModal();
+
+      // Focus title and place caret at end
+      requestAnimationFrame(() => {
+        titleEl.focus();
+        const len = titleEl.value.length;
+        titleEl.setSelectionRange(len, len);
+      });
+    }
+
+    function closeEdit() {
+      const dlg = $('#editDialog');
+      if (typeof dlg.close === 'function') dlg.close();
+      editingId = null;
+    }
+
+    function commitEditFromDialog(e) {
+      e.preventDefault();
+
+      const errEl = $('#editError');
+      clearError(errEl);
+
+      const title = $('#editTitle').value.trim();
+      const val = $('#editDt').value;
+      if (!val) { showError(errEl, 'Please choose a date and time.'); return; }
+      const ts = new Date(val).getTime();
+      if (!Number.isFinite(ts)) { showError(errEl, 'Invalid date/time.'); return; }
+      const now = Date.now();
+      if (ts <= now) { showError(errEl, 'Please choose a future time.'); return; }
+
+      const idx = countdowns.findIndex(c => c.id === editingId);
+      if (idx === -1) return;
+
+      countdowns[idx] = { ...countdowns[idx], title, ts };
+      save();
+
+      // Update UI for that item only
+      const refs = view.get(editingId);
+      if (refs) {
+        refs.titleText.textContent = title || 'Untitled';
+        refs.target.textContent = 'Target: ' + formatTarget(ts);
+        updateCardExpiredState(countdowns[idx]);
+      } else {
+        // Fallback: full re-render (shouldn't happen in normal flow)
+        renderAll();
+      }
+
+      closeEdit();
+    }
+
+    function findById(id) {
+      return countdowns.find(c => c.id === id);
+    }
+
+    function deleteItem(id) {
+      const c = findById(id);
+      const name = c?.title?.trim() || 'this countdown';
+      if (!confirm(`Delete ${name}?`)) return;
+      countdowns = countdowns.filter(c => c.id !== id);
+      save();
+      const refs = view.get(id);
+      if (refs) {
+        refs.card.remove();
+        view.delete(id);
+      }
+      toggleEmpty();
+    }
+
+    function clearAll() {
+      if (!countdowns.length) return;
+      if (!confirm('Clear ALL countdowns?')) return;
+      countdowns = [];
+      save();
+      view.forEach(refs => refs.card.remove());
+      view.clear();
+      toggleEmpty();
+    }
+
+    function toggleEmpty() {
+      setHidden($('#empty'), countdowns.length !== 0);
+    }
+
+    function renderAll() {
+      const container = $('#list');
+      container.innerHTML = '';
+      view.clear();
+
+      // Sort soonest first, then by creation time
+      const sorted = [...countdowns].sort((a, b) => (a.ts - b.ts) || (a.createdAt - b.createdAt));
+      for (const item of sorted) {
+        const card = createCard(item);
+        container.appendChild(card);
+        updateCardExpiredState(item);
+      }
+      toggleEmpty();
+    }
+
+    function updateCardExpiredState(item) {
+      const refs = view.get(item.id);
+      if (!refs) return;
+      const expired = item.ts - Date.now() <= 0;
+      refs.card.classList.toggle('expired', expired);
+      setHidden(refs.done, !expired);
+    }
+
+    function tick() {
+      const now = Date.now();
+      for (const item of countdowns) {
+        const refs = view.get(item.id);
+        if (!refs) continue;
+        const remaining = item.ts - now;
+        const { days, hours, minutes, seconds } = splitDuration(remaining);
+        refs.d.textContent = String(days);
+        refs.h.textContent = fmt2(hours);
+        refs.m.textContent = fmt2(minutes);
+        refs.s.textContent = fmt2(seconds);
+        const expired = remaining <= 0;
+        refs.card.classList.toggle('expired', expired);
+        setHidden(refs.done, !expired);
+      }
+    }
+
+    // New countdown form
+    function onNewSubmit(e) {
+      e.preventDefault();
+      clearError($('#newError'));
+      const title = $('#newTitle').value.trim();
+      const val = $('#newDt').value;
+      if (!val) return showError($('#newError'), 'Please choose a date and time.');
+      const ts = new Date(val).getTime();
+      if (!Number.isFinite(ts)) return showError($('#newError'), 'Invalid date/time.');
+      if (ts <= Date.now()) return showError($('#newError'), 'Please choose a future time.');
+
+      const item = { id: uid(), title, ts, createdAt: Date.now() };
+      countdowns.push(item);
+      save();
+
+      // Reset form convenience: advance by +1h
+      $('#newTitle').value = '';
+      const d = new Date(Date.now() + 60 * 60 * 1000);
+      $('#newDt').value = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+
+      renderAll();
+    }
+
+    // Initialize
+    (function init() {
+      countdowns = load();
+
+      // Prefill new datetime to +1 hour
+      const d = new Date(Date.now() + 60 * 60 * 1000);
+      $('#newDt').value = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+
+      $('#newForm').addEventListener('submit', onNewSubmit);
+      $('#clearAllBtn').addEventListener('click', clearAll);
+
+      // Edit dialog wiring
+      $('#editForm').addEventListener('submit', commitEditFromDialog);
+      $('#editCancel').addEventListener('click', closeEdit);
+      // Close on Esc (dialog handles this natively, but ensure cleanup)
+      $('#editDialog').addEventListener('close', () => { editingId = null; clearError($('#editError')); });
+
+      renderAll();
+
+      // Start a single timer to update all cards
+      tick();
+      setInterval(tick, 250);
+    })();
+  </script>
+</body>
+</html>
